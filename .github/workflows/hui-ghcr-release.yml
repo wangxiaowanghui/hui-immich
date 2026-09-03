@@ -7,6 +7,14 @@ on:
         description: Immutable image tag, for example v3.1.0-hui.1
         required: true
         type: string
+      build_scope:
+        description: Images to build for a manual release
+        required: true
+        default: cuda
+        type: choice
+        options:
+          - cuda
+          - all
   push:
     tags:
       - 'v*-hui.*'
@@ -45,6 +53,7 @@ jobs:
 
   server:
     needs: release-metadata
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_scope == 'all' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -76,6 +85,7 @@ jobs:
 
   machine-learning:
     needs: release-metadata
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_scope == 'all' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -107,6 +117,7 @@ jobs:
 
   machine-learning-cuda:
     needs: release-metadata
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.build_scope == 'cuda' || inputs.build_scope == 'all' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -138,6 +149,7 @@ jobs:
 
   make-packages-public:
     needs: [server, machine-learning, machine-learning-cuda]
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
