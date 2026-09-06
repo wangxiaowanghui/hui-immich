@@ -13,16 +13,54 @@ class MapUtils {
   static const mapZoomToAssetLevel = 12.0;
   static const defaultSourceId = 'asset-map-markers';
   static const defaultHeatMapLayerId = 'asset-heatmap-layer';
+  static const defaultClusterCircleLayerId = 'asset-marker-clusters';
+  static const defaultMarkerCountLayerId = 'asset-marker-count-layer';
+  static const defaultUnclusteredPointLayerId = 'asset-marker-points';
   static var markerCompleter = Completer()..complete();
 
-  static const defaultCircleLayerLayerProperties = CircleLayerProperties(
-    circleRadius: 10,
-    circleColor: "rgba(150,86,34,0.7)",
-    circleBlur: 1.0,
-    circleOpacity: 0.7,
-    circleStrokeWidth: 0.1,
-    circleStrokeColor: "rgba(203,46,19,0.5)",
-    circleStrokeOpacity: 0.7,
+  static const clusterFilter = [Expressions.has, 'point_count'];
+  static const unclusteredPointFilter = [
+    Expressions.not,
+    [Expressions.has, 'point_count'],
+  ];
+
+  static const defaultClusterCircleLayerProperties = CircleLayerProperties(
+    circleRadius: [
+      Expressions.step,
+      [Expressions.get, 'point_count'],
+      18,
+      10,
+      20,
+      50,
+      24,
+      100,
+      28,
+    ],
+    circleColor: '#3F51B5',
+    circleBlur: 0,
+    circleOpacity: 0.95,
+    circleStrokeWidth: 2,
+    circleStrokeColor: '#FFFFFF',
+    circleStrokeOpacity: 1,
+  );
+
+  static const defaultMarkerCountLayerProperties = SymbolLayerProperties(
+    textField: [Expressions.get, 'point_count_abbreviated'],
+    textFont: ['Noto Sans Medium'],
+    textSize: 14,
+    textColor: '#FFFFFF',
+    textAllowOverlap: true,
+    textIgnorePlacement: true,
+  );
+
+  static const defaultUnclusteredPointLayerProperties = CircleLayerProperties(
+    circleRadius: 8,
+    circleColor: '#3F51B5',
+    circleBlur: 0,
+    circleOpacity: 0.95,
+    circleStrokeWidth: 2,
+    circleStrokeColor: '#FFFFFF',
+    circleStrokeOpacity: 1,
   );
 
   static const defaultHeatmapLayerProperties = HeatmapLayerProperties(

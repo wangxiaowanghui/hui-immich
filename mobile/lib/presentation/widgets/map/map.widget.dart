@@ -22,23 +22,6 @@ import 'package:immich_mobile/widgets/common/immich_toast.dart';
 import 'package:immich_mobile/widgets/map/map_theme_override.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
-class CustomSourceProperties implements SourceProperties {
-  final Map<String, dynamic> data;
-  const CustomSourceProperties({required this.data});
-
-  @override
-  Map<String, dynamic> toJson() {
-    return {
-      "type": "geojson",
-      "data": data,
-      // "cluster": true,
-      // "clusterRadius": 1,
-      // "clusterMinPoints": 5,
-      // "tolerance": 0.1,
-    };
-  }
-}
-
 class DriftMap extends ConsumerStatefulWidget {
   final LatLng? initialLocation;
 
@@ -84,35 +67,50 @@ class _DriftMapState extends ConsumerState<DriftMap> {
 
     await controller.addSource(
       MapUtils.defaultSourceId,
-      const CustomSourceProperties(data: {'type': 'FeatureCollection', 'features': []}),
+      GeojsonSourceProperties(
+        data: const {'type': 'FeatureCollection', 'features': []},
+        cluster: Platform.isAndroid,
+        clusterRadius: 50,
+      ),
     );
 
-    if (Platform.isAndroid) {
-      await controller.addCircleLayer(
-        MapUtils.defaultSourceId,
-        MapUtils.defaultHeatMapLayerId,
-        const CircleLayerProperties(
-          circleRadius: 10,
-          circleColor: "rgba(150,86,34,0.7)",
-          circleBlur: 1.0,
-          circleOpacity: 0.7,
-          circleStrokeWidth: 0.1,
-          circleStrokeColor: "rgba(203,46,19,0.5)",
-          circleStrokeOpacity: 0.7,
-        ),
-      );
-    }
+    try {
+      if (Platform.isAndroid) {
+        await controller.addCircleLayer(
+          MapUtils.defaultSourceId,
+          MapUtils.defaultClusterCircleLayerId,
+          MapUtils.defaultClusterCircleLayerProperties,
+          filter: MapUtils.clusterFilter,
+          enableInteraction: false,
+        );
+        await controller.addSymbolLayer(
+          MapUtils.defaultSourceId,
+          MapUtils.defaultMarkerCountLayerId,
+          MapUtils.defaultMarkerCountLayerProperties,
+          filter: MapUtils.clusterFilter,
+          enableInteraction: false,
+        );
+        await controller.addCircleLayer(
+          MapUtils.defaultSourceId,
+          MapUtils.defaultUnclusteredPointLayerId,
+          MapUtils.defaultUnclusteredPointLayerProperties,
+          filter: MapUtils.unclusteredPointFilter,
+          enableInteraction: false,
+        );
+      }
 
-    if (Platform.isIOS) {
-      await controller.addHeatmapLayer(
-        MapUtils.defaultSourceId,
-        MapUtils.defaultHeatMapLayerId,
-        MapUtils.defaultHeatmapLayerProperties,
-      );
+      if (Platform.isIOS) {
+        await controller.addHeatmapLayer(
+          MapUtils.defaultSourceId,
+          MapUtils.defaultHeatMapLayerId,
+          MapUtils.defaultHeatmapLayerProperties,
+        );
+      }
+    } finally {
+      // A native layer error must not prevent the initial GeoJSON request.
+      _debouncer.run(() => setBounds(forceReload: true));
+      controller.addListener(onMapMoved);
     }
-
-    _debouncer.run(() => setBounds(forceReload: true));
-    controller.addListener(onMapMoved);
   }
 
   void onMapMoved() {
