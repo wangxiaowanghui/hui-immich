@@ -22,7 +22,7 @@ def amapDebugKey = localProperties.getProperty('AMAP_ANDROID_DEBUG_KEY', '')
 def amapReleaseKey = localProperties.getProperty('AMAP_ANDROID_RELEASE_KEY', '')
 def configuredKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: localProperties.getProperty('ANDROID_KEYSTORE_PATH')
 def defaultKeystoreFile = file('../key.jks')
-def workspaceKeystoreFile = file('../../../../immich-release.jks')
+def workspaceKeystoreFile = file('../../../../../immich-release.jks')
 def releaseKeystoreFile = configuredKeystorePath ? file(configuredKeystorePath) :
     (defaultKeystoreFile.exists() ? defaultKeystoreFile : workspaceKeystoreFile)
 
