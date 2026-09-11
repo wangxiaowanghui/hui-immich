@@ -19,6 +19,8 @@ import 'package:immich_mobile/providers/routes.provider.dart';
 import 'package:immich_mobile/utils/async_mutex.dart';
 import 'package:immich_mobile/utils/debounce.dart';
 import 'package:immich_mobile/widgets/common/immich_toast.dart';
+import 'package:immich_mobile/widgets/map/amap_map.dart';
+import 'package:immich_mobile/widgets/map/amap_privacy_gate.dart';
 import 'package:immich_mobile/widgets/map/map_theme_override.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -33,16 +35,22 @@ class DriftMap extends ConsumerStatefulWidget {
 
 class _DriftMapState extends ConsumerState<DriftMap> {
   MapLibreMapController? mapController;
+  AmapMapController? amapController;
   final _reloadMutex = AsyncMutex();
-  final _debouncer = Debouncer(interval: const Duration(milliseconds: 500), maxWaitTime: const Duration(seconds: 2));
+  final _debouncer = Debouncer(
+      interval: const Duration(milliseconds: 500),
+      maxWaitTime: const Duration(seconds: 2));
   final ValueNotifier<double> bottomSheetOffset = ValueNotifier(0.25);
   final GlobalKey _bottomSheetKey = GlobalKey();
   StreamSubscription? _eventSubscription;
+  bool _amapInitialLoadPending = false;
 
   @override
   void initState() {
     super.initState();
-    _eventSubscription = EventStream.shared.listen<MapMarkerReloadEvent>(_onEvent);
+    _amapInitialLoadPending = widget.initialLocation == null;
+    _eventSubscription =
+        EventStream.shared.listen<MapMarkerReloadEvent>(_onEvent);
   }
 
   @override
@@ -55,11 +63,17 @@ class _DriftMapState extends ConsumerState<DriftMap> {
 
   void onMapCreated(MapLibreMapController controller) {
     mapController = controller;
+    amapController = null;
+  }
+
+  void onAmapCreated(AmapMapController controller) {
+    amapController = controller;
+    mapController = null;
   }
 
   void _onEvent(_) => _debouncer.run(() => setBounds(forceReload: true));
 
-  Future<void> onMapReady() async {
+  Future<void> onMapLibreReady() async {
     final controller = mapController;
     if (controller == null) {
       return;
@@ -113,6 +127,41 @@ class _DriftMapState extends ConsumerState<DriftMap> {
     }
   }
 
+  void onAmapReady() => unawaited(_initializeAmap());
+
+  Future<void> _initializeAmap() async {
+    if (widget.initialLocation != null) {
+      await setBounds(forceReload: true);
+      return;
+    }
+
+    // AMap starts at (0, 0) when no initial location is available. Loading that
+    // viewport first would produce an empty result and could race with the
+    // marker-driven camera fit. The repository's null-bounds query is the
+    // canonical way to load all located assets for this one-time bootstrap.
+    await _reloadMutex.run(() async {
+      if (!mounted || amapController == null) {
+        return;
+      }
+      final markers = await ref.read(mapMarkerProvider(null).future);
+      await reloadMarkers(markers);
+    });
+
+    if (!mounted || amapController == null) {
+      return;
+    }
+    _amapInitialLoadPending = false;
+    final fittedBounds = await amapController!.getVisibleRegion();
+    await setBounds(forceReload: true, boundsOverride: fittedBounds);
+  }
+
+  void onAmapCameraIdle(LatLngBounds bounds) {
+    if (_amapInitialLoadPending) {
+      return;
+    }
+    _debouncer.run(() => setBounds(boundsOverride: bounds));
+  }
+
   void onMapMoved() {
     if (mapController!.isCameraMoving || !mounted) {
       return;
@@ -121,9 +170,9 @@ class _DriftMapState extends ConsumerState<DriftMap> {
     _debouncer.run(setBounds);
   }
 
-  Future<void> setBounds({bool forceReload = false}) async {
-    final controller = mapController;
-    if (controller == null || !mounted) {
+  Future<void> setBounds(
+      {bool forceReload = false, LatLngBounds? boundsOverride}) async {
+    if ((mapController == null && amapController == null) || !mounted) {
       return;
     }
 
@@ -134,28 +183,35 @@ class _DriftMapState extends ConsumerState<DriftMap> {
       return;
     }
 
-    final bounds = await controller.getVisibleRegion();
-    unawaited(
-      _reloadMutex.run(() async {
-        if (mounted && (ref.read(mapStateProvider.notifier).setBounds(bounds) || forceReload)) {
-          final markers = await ref.read(mapMarkerProvider(bounds).future);
-          await reloadMarkers(markers);
-        }
-      }),
-    );
+    final bounds = boundsOverride ??
+        (amapController != null
+            ? await amapController!.getVisibleRegion()
+            : await mapController!.getVisibleRegion());
+    await _reloadMutex.run(() async {
+      if (mounted &&
+          (ref.read(mapStateProvider.notifier).setBounds(bounds) ||
+              forceReload)) {
+        final markers = await ref.read(mapMarkerProvider(bounds).future);
+        await reloadMarkers(markers);
+      }
+    });
   }
 
   Future<void> reloadMarkers(Map<String, dynamic> markers) async {
-    final controller = mapController;
-    if (controller == null || !mounted) {
+    if ((mapController == null && amapController == null) || !mounted) {
       return;
     }
 
-    await controller.setGeoJsonSource(MapUtils.defaultSourceId, markers);
+    if (amapController != null) {
+      await amapController!.setGeoJson(markers);
+    } else {
+      await mapController!.setGeoJsonSource(MapUtils.defaultSourceId, markers);
+    }
   }
 
   Future<void> onZoomToLocation() async {
-    final (location, error) = await MapUtils.checkPermAndGetLocation(context: context);
+    final (location, error) =
+        await MapUtils.checkPermAndGetLocation(context: context);
     if (error != null) {
       if (error == LocationPermission.unableToDetermine && context.mounted) {
         ImmichToast.show(
@@ -168,12 +224,17 @@ class _DriftMapState extends ConsumerState<DriftMap> {
       return;
     }
 
-    final controller = mapController;
-    if (controller != null && location != null) {
-      await controller.animateCamera(
-        CameraUpdate.newLatLngZoom(LatLng(location.latitude, location.longitude), MapUtils.mapZoomToAssetLevel),
-        duration: const Duration(milliseconds: 800),
-      );
+    if (location != null) {
+      final target = LatLng(location.latitude, location.longitude);
+      if (amapController != null) {
+        await amapController!
+            .moveCamera(target, zoom: MapUtils.mapZoomToAssetLevel);
+      } else if (mapController != null) {
+        await mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(target, MapUtils.mapZoomToAssetLevel),
+          duration: const Duration(milliseconds: 800),
+        );
+      }
     }
   }
 
@@ -186,9 +247,19 @@ class _DriftMapState extends ConsumerState<DriftMap> {
     });
     return Stack(
       children: [
-        _Map(initialLocation: widget.initialLocation, onMapCreated: onMapCreated, onMapReady: onMapReady),
-        _DynamicBottomSheet(bottomSheetOffset: bottomSheetOffset, sheetKey: _bottomSheetKey),
-        _DynamicMyLocationButton(onZoomToLocation: onZoomToLocation, bottomSheetOffset: bottomSheetOffset),
+        _Map(
+          initialLocation: widget.initialLocation,
+          onMapCreated: onMapCreated,
+          onMapLibreReady: onMapLibreReady,
+          onAmapCreated: onAmapCreated,
+          onAmapReady: onAmapReady,
+          onAmapCameraIdle: onAmapCameraIdle,
+        ),
+        _DynamicBottomSheet(
+            bottomSheetOffset: bottomSheetOffset, sheetKey: _bottomSheetKey),
+        _DynamicMyLocationButton(
+            onZoomToLocation: onZoomToLocation,
+            bottomSheetOffset: bottomSheetOffset),
       ],
     );
   }
@@ -197,29 +268,55 @@ class _DriftMapState extends ConsumerState<DriftMap> {
 class _Map extends StatelessWidget {
   final LatLng? initialLocation;
 
-  const _Map({this.initialLocation, required this.onMapCreated, required this.onMapReady});
+  const _Map({
+    this.initialLocation,
+    required this.onMapCreated,
+    required this.onMapLibreReady,
+    required this.onAmapCreated,
+    required this.onAmapReady,
+    required this.onAmapCameraIdle,
+  });
 
   final MapCreatedCallback onMapCreated;
 
-  final VoidCallback onMapReady;
+  final VoidCallback onMapLibreReady;
+  final AmapMapCreatedCallback onAmapCreated;
+  final VoidCallback onAmapReady;
+  final AmapCameraIdleCallback onAmapCameraIdle;
 
   @override
   Widget build(BuildContext context) {
     final initialLocation = this.initialLocation;
     return MapThemeOverride(
-      mapBuilder: (style) => style.widgetWhen(
-        onData: (style) => MapLibreMap(
-          initialCameraPosition: initialLocation == null
-              ? const CameraPosition(target: LatLng(0, 0), zoom: 0)
-              : CameraPosition(target: initialLocation, zoom: MapUtils.mapZoomToAssetLevel),
-          compassEnabled: false,
-          rotateGesturesEnabled: false,
-          styleString: style,
-          onMapCreated: onMapCreated,
-          onStyleLoadedCallback: onMapReady,
-          attributionButtonPosition: AttributionButtonPosition.topRight,
-          attributionButtonMargins: const Point(8, kToolbarHeight),
-        ),
+      mapBuilder: (style) => AmapPrivacyGate(
+        builder: (context, useAmap) {
+          final center = initialLocation ?? const LatLng(0, 0);
+          final zoom =
+              initialLocation == null ? 3.0 : MapUtils.mapZoomToAssetLevel;
+          if (useAmap) {
+            return AmapMap(
+              initialCenter: center,
+              zoom: zoom,
+              autoFitMarkers: initialLocation == null,
+              darkMode: Theme.of(context).brightness == Brightness.dark,
+              onMapCreated: onAmapCreated,
+              onMapReady: onAmapReady,
+              onCameraIdle: onAmapCameraIdle,
+            );
+          }
+          return style.widgetWhen(
+            onData: (style) => MapLibreMap(
+              initialCameraPosition: CameraPosition(target: center, zoom: zoom),
+              compassEnabled: false,
+              rotateGesturesEnabled: false,
+              styleString: style,
+              onMapCreated: onMapCreated,
+              onStyleLoadedCallback: onMapLibreReady,
+              attributionButtonPosition: AttributionButtonPosition.topRight,
+              attributionButtonMargins: const Point(8, kToolbarHeight),
+            ),
+          );
+        },
       ),
     );
   }
@@ -229,7 +326,8 @@ class _DynamicBottomSheet extends StatefulWidget {
   final ValueNotifier<double> bottomSheetOffset;
   final GlobalKey sheetKey;
 
-  const _DynamicBottomSheet({required this.bottomSheetOffset, required this.sheetKey});
+  const _DynamicBottomSheet(
+      {required this.bottomSheetOffset, required this.sheetKey});
 
   @override
   State<_DynamicBottomSheet> createState() => _DynamicBottomSheetState();
@@ -240,7 +338,8 @@ class _DynamicBottomSheetState extends State<_DynamicBottomSheet> {
   Widget build(BuildContext context) {
     return NotificationListener<DraggableScrollableNotification>(
       onNotification: (notification) {
-        final sheet = notification.context.findAncestorWidgetOfExactType<BaseBottomSheet>();
+        final sheet = notification.context
+            .findAncestorWidgetOfExactType<BaseBottomSheet>();
         if (sheet?.key == widget.sheetKey) {
           widget.bottomSheetOffset.value = notification.extent;
         }
@@ -252,7 +351,8 @@ class _DynamicBottomSheetState extends State<_DynamicBottomSheet> {
 }
 
 class _DynamicMyLocationButton extends StatelessWidget {
-  const _DynamicMyLocationButton({required this.onZoomToLocation, required this.bottomSheetOffset});
+  const _DynamicMyLocationButton(
+      {required this.onZoomToLocation, required this.bottomSheetOffset});
 
   final VoidCallback onZoomToLocation;
   final ValueNotifier<double> bottomSheetOffset;

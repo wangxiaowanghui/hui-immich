@@ -2,6 +2,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'body-parser';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import type { Request, Response } from 'express';
 import helmetMiddleware from 'helmet';
 import { existsSync } from 'node:fs';
 import sirv from 'sirv';
@@ -62,6 +63,8 @@ export async function configureExpress(
     app.enableCors();
   }
 
+  configureAmapProxy(app, configRepository, logger);
+
   app.setGlobalPrefix('api', { exclude: excludePaths });
   app.useWebSocketAdapter(new WebSocketAdapter(app));
 
@@ -92,4 +95,54 @@ export async function configureExpress(
   server.requestTimeout = 24 * 60 * 60 * 1000;
 
   logger.log(`${IMMICH_SERVER_START} on ${await app.getUrl()} [v${serverVersion}] [${environment}] `);
+}
+
+function configureAmapProxy(
+  app: NestExpressApplication,
+  configRepository: ConfigRepository,
+  logger: LoggingRepository,
+) {
+  const { amap } = configRepository.getEnv();
+  const webSecurityJsCode = amap?.webSecurityJsCode;
+  if (!amap?.webKey || !webSecurityJsCode) {
+    return;
+  }
+
+  const prefix = '/_AMapService';
+  app.use(prefix, async (request: Request, response: Response) => {
+    if (request.method !== 'GET') {
+      response.sendStatus(405);
+      return;
+    }
+
+    const suffix = request.originalUrl.slice(prefix.length);
+    if (!/^\/(?!\/)[\w!$&'()*+,./:;=@%~-]+(?:\?[\s\S]*)?$/.test(suffix)) {
+      response.sendStatus(400);
+      return;
+    }
+
+    const upstreamUrl = new URL(suffix, 'https://restapi.amap.com');
+    upstreamUrl.searchParams.set('jscode', webSecurityJsCode);
+
+    try {
+      const upstream = await fetch(upstreamUrl, {
+        headers: { accept: request.header('accept') || '*/*' },
+        redirect: 'error',
+        signal: AbortSignal.timeout(15_000),
+      });
+      response.status(upstream.status);
+      const contentType = upstream.headers.get('content-type');
+      if (contentType) {
+        response.setHeader('content-type', contentType);
+      }
+      const cacheControl = upstream.headers.get('cache-control');
+      if (cacheControl) {
+        response.setHeader('cache-control', cacheControl);
+      }
+      response.send(Buffer.from(await upstream.arrayBuffer()));
+    } catch (error) {
+      logger.warn(`AMap proxy request failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+      response.sendStatus(502);
+    }
+  });
 }

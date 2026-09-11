@@ -6,6 +6,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:immich_mobile/extensions/asyncvalue_extensions.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/maplibrecontroller_extensions.dart';
+import 'package:immich_mobile/widgets/map/amap_map.dart';
+import 'package:immich_mobile/widgets/map/amap_privacy_gate.dart';
 import 'package:immich_mobile/widgets/map/map_theme_override.dart';
 import 'package:immich_mobile/widgets/map/asset_marker_icon.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -83,22 +85,38 @@ class MapThumbnail extends HookConsumerWidget {
           child: Stack(
             alignment: AlignmentGeometry.topCenter,
             children: [
-              style.widgetWhen(
-                onData: (style) => MapLibreMap(
-                  initialCameraPosition: CameraPosition(target: centre, zoom: zoom),
-                  styleString: style,
-                  onMapCreated: onMapCreated,
-                  onStyleLoadedCallback: onStyleLoaded,
-                  onMapClick: onTap,
-                  doubleClickZoomEnabled: false,
-                  dragEnabled: false,
-                  zoomGesturesEnabled: false,
-                  tiltGesturesEnabled: false,
-                  scrollGesturesEnabled: false,
-                  rotateGesturesEnabled: false,
-                  myLocationEnabled: false,
-                  attributionButtonMargins: showAttribution == false ? const Point(-100, 0) : null,
-                ),
+              AmapPrivacyGate(
+                builder: (mapContext, useAmap) {
+                  if (useAmap) {
+                    return AmapMap(
+                      initialCenter: centre,
+                      zoom: zoom,
+                      interactive: false,
+                      darkMode: Theme.of(mapContext).brightness == Brightness.dark,
+                      showMarkerPin: showMarkerPin,
+                      showAttribution: showAttribution,
+                      onMapReady: () => styleLoaded.value = true,
+                      onMapClick: onTap,
+                    );
+                  }
+                  return style.widgetWhen(
+                    onData: (style) => MapLibreMap(
+                      initialCameraPosition: CameraPosition(target: centre, zoom: zoom),
+                      styleString: style,
+                      onMapCreated: onMapCreated,
+                      onStyleLoadedCallback: onStyleLoaded,
+                      onMapClick: onTap,
+                      doubleClickZoomEnabled: false,
+                      dragEnabled: false,
+                      zoomGesturesEnabled: false,
+                      tiltGesturesEnabled: false,
+                      scrollGesturesEnabled: false,
+                      rotateGesturesEnabled: false,
+                      myLocationEnabled: false,
+                      attributionButtonMargins: showAttribution == false ? const Point(-100, 0) : null,
+                    ),
+                  );
+                },
               ),
               if (assetMarkerRemoteId != null && assetThumbhash != null)
                 Container(
@@ -108,6 +126,13 @@ class MapThumbnail extends HookConsumerWidget {
                   child: SizedBox.square(
                     dimension: height / 2.5,
                     child: AssetMarkerIcon(id: assetMarkerRemoteId!, thumbhash: assetThumbhash!),
+                  ),
+                ),
+              if (onTap != null)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onTap!(const Point<double>(0, 0), centre),
                   ),
                 ),
             ],

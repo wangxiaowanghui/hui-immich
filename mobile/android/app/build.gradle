@@ -13,6 +13,14 @@ if (keystorePropertiesFile.exists()) {
   keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+  localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def amapDebugKey = localProperties.getProperty('AMAP_ANDROID_DEBUG_KEY', '')
+def amapReleaseKey = localProperties.getProperty('AMAP_ANDROID_RELEASE_KEY', '')
+
 android {
   compileSdk = flutter.compileSdkVersion
   ndkVersion = flutter.ndkVersion
@@ -61,12 +69,16 @@ android {
     debug {
       applicationIdSuffix '.debug'
       versionNameSuffix '-DEBUG'
+      manifestPlaceholders.AMAP_API_KEY = amapDebugKey
+      buildConfigField 'boolean', 'AMAP_CONFIGURED', amapDebugKey.isEmpty() ? 'false' : 'true'
     }
 
     release {
       def hasKeystore = file("../key.jks").exists() && file("../key.jks").length() > 0
       signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+      manifestPlaceholders.AMAP_API_KEY = amapReleaseKey
+      buildConfigField 'boolean', 'AMAP_CONFIGURED', amapReleaseKey.isEmpty() ? 'false' : 'true'
 
       def prNumber = System.getenv("PR_NUMBER")
       if (prNumber) {
@@ -99,6 +111,8 @@ dependencies {
   implementation libs.guava
   implementation libs.glide
   implementation libs.kotlinx.serialization.json
+  implementation 'com.amap.api:3dmap-location-search:11.2.100_loc11.2.100_sea9.8.1'
+  testImplementation 'junit:junit:4.13.2'
 
   ksp libs.glide.ksp
   coreLibraryDesugaring libs.desugar.jdk.libs

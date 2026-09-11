@@ -18,6 +18,7 @@ import app.alextran.immich.images.LocalImageApi
 import app.alextran.immich.images.LocalImagesImpl
 import app.alextran.immich.images.RemoteImageApi
 import app.alextran.immich.images.RemoteImagesImpl
+import app.alextran.immich.map.AmapMapPlugin
 import app.alextran.immich.permission.PermissionApi
 import app.alextran.immich.permission.PermissionApiImpl
 import app.alextran.immich.sync.NativeSyncApi
@@ -45,6 +46,7 @@ class MainActivity : FlutterFragmentActivity() {
       flutterEngine.plugins.add(NetworkApiPlugin())
 
       val messenger = flutterEngine.dartExecutor.binaryMessenger
+      AmapMapPlugin.register(ctx, flutterEngine)
       val backgroundEngineLockImpl = BackgroundEngineLock(ctx)
       BackgroundWorkerLockApi.setUp(messenger, backgroundEngineLockImpl)
       val nativeSyncApiImpl =

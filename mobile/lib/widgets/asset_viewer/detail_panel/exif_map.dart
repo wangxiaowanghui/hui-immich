@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -28,38 +27,37 @@ class ExifMap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasCoordinates = exifInfo.hasCoordinates;
-    Future<Uri?> createCoordinatesUri() async {
+    Future<void> openCoordinates() async {
       if (!hasCoordinates) {
-        return null;
+        return;
       }
 
       final double latitude = exifInfo.latitude!;
       final double longitude = exifInfo.longitude!;
-
       const zoomLevel = 16;
 
       if (Platform.isAndroid) {
-        Uri uri = Uri(
-          scheme: 'geo',
-          host: '$latitude,$longitude',
-          queryParameters: {'z': '$zoomLevel', 'q': '$latitude,$longitude'},
-        );
-        if (await canLaunchUrl(uri)) {
-          return uri;
+        if (await _tryLaunch(buildAmapCoordinatesUri(latitude, longitude))) {
+          return;
+        }
+        if (await _tryLaunch(buildGeoCoordinatesUri(latitude, longitude))) {
+          return;
         }
       } else if (Platform.isIOS) {
-        var params = {'ll': '$latitude,$longitude', 'q': '$latitude,$longitude', 'z': '$zoomLevel'};
+        final params = {'ll': '$latitude,$longitude', 'q': '$latitude,$longitude', 'z': '$zoomLevel'};
         Uri uri = Uri.https('maps.apple.com', '/', params);
-        if (await canLaunchUrl(uri)) {
-          return uri;
+        if (await _tryLaunch(uri)) {
+          return;
         }
       }
 
-      return Uri(
-        scheme: 'https',
-        host: 'openstreetmap.org',
-        queryParameters: {'mlat': '$latitude', 'mlon': '$longitude'},
-        fragment: 'map=$zoomLevel/$latitude/$longitude',
+      await _tryLaunch(
+        Uri(
+          scheme: 'https',
+          host: 'www.openstreetmap.org',
+          queryParameters: {'mlat': '$latitude', 'mlon': '$longitude'},
+          fragment: 'map=$zoomLevel/$latitude/$longitude',
+        ),
       );
     }
 
@@ -73,18 +71,39 @@ class ExifMap extends StatelessWidget {
           assetMarkerRemoteId: markerId,
           assetThumbhash: markerAssetThumbhash,
           onTap: (tapPosition, latLong) async {
-            Uri? uri = await createCoordinatesUri();
-
-            if (uri == null) {
-              return;
-            }
-
-            dPrint(() => 'Opening Map Uri: $uri');
-            unawaited(launchUrl(uri));
+            await openCoordinates();
           },
           onCreated: onMapCreated,
         );
       },
     );
+  }
+}
+
+Uri buildAmapCoordinatesUri(double latitude, double longitude) => Uri(
+  scheme: 'androidamap',
+  host: 'viewMap',
+  queryParameters: {
+    'sourceApplication': 'Immich',
+    'poiname': '${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}',
+    'lat': '$latitude',
+    'lon': '$longitude',
+    'dev': '1',
+  },
+);
+
+Uri buildGeoCoordinatesUri(double latitude, double longitude) =>
+    Uri.parse('geo:$latitude,$longitude?z=16&q=$latitude,$longitude');
+
+Future<bool> _tryLaunch(Uri uri) async {
+  try {
+    if (!await canLaunchUrl(uri)) {
+      return false;
+    }
+    dPrint(() => 'Opening Map Uri: $uri');
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (error) {
+    dPrint(() => 'Cannot open Map Uri: $uri ($error)');
+    return false;
   }
 }

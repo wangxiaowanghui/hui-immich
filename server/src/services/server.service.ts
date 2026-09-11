@@ -111,7 +111,7 @@ export class ServerService extends BaseService {
   }
 
   async getSystemConfig(): Promise<ServerConfigDto> {
-    const { setup } = this.configRepository.getEnv();
+    const { setup, amap } = this.configRepository.getEnv();
     const config = await this.getConfig({ withCache: false });
     const isInitialized = !setup.allow || (await this.userRepository.hasAdmin());
     const onboarding = await this.systemMetadataRepository.get(SystemMetadataKey.AdminOnboarding);
@@ -127,6 +127,8 @@ export class ServerService extends BaseService {
       publicUsers: config.server.publicUsers,
       mapDarkStyleUrl: config.map.darkStyle,
       mapLightStyleUrl: config.map.lightStyle,
+      amapEnabled: !!amap?.webKey && !!amap?.webSecurityJsCode,
+      amapWebKey: amap?.webKey || '',
       maintenanceMode: false,
       minFaces: config.machineLearning.facialRecognition.minFaces,
     };

@@ -123,6 +123,8 @@ const ServerConfigSchema = z
     publicUsers: z.boolean().describe('Whether public user registration is enabled'),
     mapDarkStyleUrl: z.string().describe('Map dark style URL'),
     mapLightStyleUrl: z.string().describe('Map light style URL'),
+    amapEnabled: z.boolean().describe('Whether AMap is configured for the web client'),
+    amapWebKey: z.string().describe('AMap JavaScript API web key'),
     maintenanceMode: z.boolean().describe('Whether maintenance mode is active'),
     minFaces: z.int().describe('People min faces server default'),
   })

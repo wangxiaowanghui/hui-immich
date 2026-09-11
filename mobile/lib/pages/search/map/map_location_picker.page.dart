@@ -9,6 +9,8 @@ import 'package:immich_mobile/extensions/asyncvalue_extensions.dart';
 import 'package:immich_mobile/extensions/build_context_extensions.dart';
 import 'package:immich_mobile/extensions/maplibrecontroller_extensions.dart';
 import 'package:immich_mobile/utils/map_utils.dart';
+import 'package:immich_mobile/widgets/map/amap_map.dart';
+import 'package:immich_mobile/widgets/map/amap_privacy_gate.dart';
 import 'package:immich_mobile/widgets/map/map_theme_override.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -22,6 +24,7 @@ class MapLocationPickerPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedLatLng = useValueNotifier<LatLng>(initialLatLng);
     final controller = useRef<MapLibreMapController?>(null);
+    final amapController = useRef<AmapMapController?>(null);
     final marker = useRef<Symbol?>(null);
 
     Future<void> onStyleLoaded() async {
@@ -30,8 +33,13 @@ class MapLocationPickerPage extends HookConsumerWidget {
 
     Future<void> onMapClick(Point<num> _, LatLng centre) async {
       selectedLatLng.value = centre;
-      await controller.value?.animateCamera(CameraUpdate.newLatLng(centre));
-      if (marker.value != null) {
+      if (amapController.value != null) {
+        await amapController.value?.moveCamera(centre);
+        await amapController.value?.setPin(centre);
+      } else {
+        await controller.value?.animateCamera(CameraUpdate.newLatLng(centre));
+      }
+      if (controller.value != null && marker.value != null) {
         await controller.value?.updateSymbol(marker.value!, SymbolOptions(geometry: centre));
       }
     }
@@ -49,7 +57,12 @@ class MapLocationPickerPage extends HookConsumerWidget {
 
       var currentLatLng = LatLng(currentLocation.latitude, currentLocation.longitude);
       selectedLatLng.value = currentLatLng;
-      await controller.value?.animateCamera(CameraUpdate.newLatLngZoom(currentLatLng, 12));
+      if (amapController.value != null) {
+        await amapController.value?.moveCamera(currentLatLng, zoom: 12);
+        await amapController.value?.setPin(currentLatLng);
+      } else {
+        await controller.value?.animateCamera(CameraUpdate.newLatLngZoom(currentLatLng, 12));
+      }
     }
 
     return MapThemeOverride(
@@ -59,26 +72,39 @@ class MapLocationPickerPage extends HookConsumerWidget {
           appBar: _AppBar(onClose: onClose),
           extendBodyBehindAppBar: true,
           primary: true,
-          body: style.widgetWhen(
-            onData: (style) => Container(
-              clipBehavior: Clip.antiAliasWithSaveLayer,
-              decoration: const BoxDecoration(
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
-              ),
-              child: MapLibreMap(
-                initialCameraPosition: CameraPosition(
-                  target: initialLatLng,
-                  zoom: (initialLatLng.latitude == 0 && initialLatLng.longitude == 0) ? 1 : 12,
-                ),
-                styleString: style,
-                onMapCreated: (mapController) => controller.value = mapController,
-                onStyleLoadedCallback: onStyleLoaded,
-                onMapClick: onMapClick,
-                dragEnabled: false,
-                tiltGesturesEnabled: false,
-                myLocationEnabled: false,
-                attributionButtonMargins: const Point(20, 15),
-              ),
+          body: Container(
+            clipBehavior: Clip.antiAliasWithSaveLayer,
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(bottomLeft: Radius.circular(40), bottomRight: Radius.circular(40)),
+            ),
+            child: AmapPrivacyGate(
+              builder: (mapContext, useAmap) {
+                final zoom = (initialLatLng.latitude == 0 && initialLatLng.longitude == 0) ? 1.0 : 12.0;
+                if (useAmap) {
+                  return AmapMap(
+                    initialCenter: initialLatLng,
+                    zoom: zoom,
+                    darkMode: Theme.of(mapContext).brightness == Brightness.dark,
+                    showMarkerPin: true,
+                    selectOnTap: true,
+                    onMapCreated: (mapController) => amapController.value = mapController,
+                    onMapClick: onMapClick,
+                  );
+                }
+                return style.widgetWhen(
+                  onData: (style) => MapLibreMap(
+                    initialCameraPosition: CameraPosition(target: initialLatLng, zoom: zoom),
+                    styleString: style,
+                    onMapCreated: (mapController) => controller.value = mapController,
+                    onStyleLoadedCallback: onStyleLoaded,
+                    onMapClick: onMapClick,
+                    dragEnabled: false,
+                    tiltGesturesEnabled: false,
+                    myLocationEnabled: false,
+                    attributionButtonMargins: const Point(20, 15),
+                  ),
+                );
+              },
             ),
           ),
           bottomNavigationBar: _BottomBar(

@@ -167,6 +167,8 @@ describe(ServerService.name, () => {
         publicUsers: true,
         mapDarkStyleUrl: 'https://tiles.immich.cloud/v1/style/dark.json',
         mapLightStyleUrl: 'https://tiles.immich.cloud/v1/style/light.json',
+        amapEnabled: false,
+        amapWebKey: '',
         maintenanceMode: false,
         minFaces: 3,
       });

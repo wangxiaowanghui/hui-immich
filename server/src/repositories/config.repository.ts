@@ -127,6 +127,10 @@ export interface EnvData {
 
   noColor: boolean;
   nodeVersion?: string;
+  amap?: {
+    webKey?: string;
+    webSecurityJsCode?: string;
+  };
 }
 
 const productionKeys = {
@@ -376,6 +380,10 @@ const getEnv = (): EnvData => {
     },
 
     noColor: !!dto.NO_COLOR,
+    amap: {
+      webKey: dto.AMAP_WEB_KEY,
+      webSecurityJsCode: dto.AMAP_WEB_SECURITY_JSCODE,
+    },
   };
 };
 

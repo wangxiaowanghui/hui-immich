@@ -19,6 +19,8 @@ const resetEnv = () => {
     'IMMICH_MICROSERVICES_METRICS_PORT',
     'IMMICH_TELEMETRY_INCLUDE',
     'IMMICH_TELEMETRY_EXCLUDE',
+    'AMAP_WEB_KEY',
+    'AMAP_WEB_SECURITY_JSCODE',
 
     'DB_URL',
     'DB_HOSTNAME',
@@ -86,6 +88,20 @@ describe('getEnv', () => {
     it('should throw an error for relative paths', () => {
       process.env.IMMICH_MEDIA_LOCATION = './relative/path';
       expect(() => getEnv()).toThrowError('[IMMICH_MEDIA_LOCATION] Must be an absolute path');
+    });
+  });
+
+  describe('AMap web configuration', () => {
+    it('keeps both web credentials in the server environment boundary', () => {
+      process.env.AMAP_WEB_KEY = 'public-web-key';
+      process.env.AMAP_WEB_SECURITY_JSCODE = 'server-only-security-code';
+
+      const { amap } = getEnv();
+
+      expect(amap).toEqual({
+        webKey: 'public-web-key',
+        webSecurityJsCode: 'server-only-security-code',
+      });
     });
   });
 

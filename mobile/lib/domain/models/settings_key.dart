@@ -60,6 +60,7 @@ enum SettingsKey<T> {
   mapIncludeArchived<bool>(),
   mapThemeMode<ThemeMode>(codec: EnumCodec(ThemeMode.values)),
   mapWithPartners<bool>(),
+  mapAmapPrivacyConsentVersion<int>(),
 
   // Cleanup
   cleanupKeepFavorites<bool>(),
