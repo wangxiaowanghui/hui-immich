@@ -78,7 +78,8 @@ jobs:
           build-args: DEVICE=cpu
           platforms: linux/amd64
           push: true
-          provenance: true
+          # Aliyun Container Registry rejects OCI provenance empty manifests.
+          provenance: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/hui-immich-server:${{ needs.release-metadata.outputs.release_tag }}
             ghcr.io/${{ github.repository_owner }}/hui-immich-server:${{ needs.release-metadata.outputs.commit_tag }}
@@ -110,7 +111,8 @@ jobs:
           build-args: DEVICE=cpu
           platforms: linux/amd64
           push: true
-          provenance: true
+          # Aliyun Container Registry rejects OCI provenance empty manifests.
+          provenance: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/hui-immich-machine-learning:${{ needs.release-metadata.outputs.release_tag }}
             ghcr.io/${{ github.repository_owner }}/hui-immich-machine-learning:${{ needs.release-metadata.outputs.commit_tag }}
@@ -142,7 +144,8 @@ jobs:
           build-args: DEVICE=cuda
           platforms: linux/amd64
           push: true
-          provenance: true
+          # Aliyun Container Registry rejects OCI provenance empty manifests.
+          provenance: false
           tags: |
             ghcr.io/${{ github.repository_owner }}/hui-immich-machine-learning:${{ needs.release-metadata.outputs.release_tag }}-cuda
             ghcr.io/${{ github.repository_owner }}/hui-immich-machine-learning:${{ needs.release-metadata.outputs.commit_tag }}-cuda
