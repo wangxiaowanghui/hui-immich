@@ -20,6 +20,11 @@ if (localPropertiesFile.exists()) {
 }
 def amapDebugKey = localProperties.getProperty('AMAP_ANDROID_DEBUG_KEY', '')
 def amapReleaseKey = localProperties.getProperty('AMAP_ANDROID_RELEASE_KEY', '')
+def configuredKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: localProperties.getProperty('ANDROID_KEYSTORE_PATH')
+def defaultKeystoreFile = file('../key.jks')
+def workspaceKeystoreFile = file('../../../../immich-release.jks')
+def releaseKeystoreFile = configuredKeystorePath ? file(configuredKeystorePath) :
+    (defaultKeystoreFile.exists() ? defaultKeystoreFile : workspaceKeystoreFile)
 
 android {
   compileSdk = flutter.compileSdkVersion
@@ -60,7 +65,7 @@ android {
 
       keyAlias keyAliasVal ?: keystoreProperties['keyAlias']
       keyPassword keyPasswordVal ?: keystoreProperties['keyPassword']
-      storeFile file("../key.jks").exists() ? file("../key.jks") : file(keystoreProperties['storeFile'] ?: '../key.jks')
+      storeFile releaseKeystoreFile
       storePassword storePasswordVal ?: keystoreProperties['storePassword']
     }
   }
@@ -74,7 +79,7 @@ android {
     }
 
     release {
-      def hasKeystore = file("../key.jks").exists() && file("../key.jks").length() > 0
+      def hasKeystore = releaseKeystoreFile.exists() && releaseKeystoreFile.length() > 0
       signingConfig hasKeystore ? signingConfigs.release : signingConfigs.debug
       proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
       manifestPlaceholders.AMAP_API_KEY = amapReleaseKey
