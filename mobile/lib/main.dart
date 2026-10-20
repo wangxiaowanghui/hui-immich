@@ -43,6 +43,7 @@ import 'package:immich_mobile/utils/licenses.dart';
 import 'package:immich_mobile/utils/migration.dart';
 import 'package:immich_mobile/wm_executor.dart';
 import 'package:immich_ui/immich_ui.dart';
+import 'package:immich_mobile/widgets/map/amap_privacy_gate.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:logging/logging.dart';
 import 'package:timezone/data/latest.dart';
@@ -270,12 +271,15 @@ class ImmichAppState extends ConsumerState<ImmichApp> with WidgetsBindingObserve
         themeMode: ref.watch(appConfigProvider.select((config) => config.theme.mode)),
         darkTheme: getThemeData(colorScheme: immichTheme.dark, locale: context.locale),
         theme: getThemeData(colorScheme: immichTheme.light, locale: context.locale),
-        builder: (context, child) => ImmichTranslationProvider(
-          translations: ImmichTranslations(
-            submit: "submit".t(context: context),
-            password: "password".t(context: context),
+        builder: (context, child) => AmapPrivacyGate(
+          inlinePrompt: true,
+          builder: (context, _) => ImmichTranslationProvider(
+            translations: ImmichTranslations(
+              submit: "submit".t(context: context),
+              password: "password".t(context: context),
+            ),
+            child: ImmichThemeProvider(colorScheme: context.colorScheme, child: child!),
           ),
-          child: ImmichThemeProvider(colorScheme: context.colorScheme, child: child!),
         ),
         routerConfig: router.config(
           deepLinkBuilder: _deepLinkBuilder,

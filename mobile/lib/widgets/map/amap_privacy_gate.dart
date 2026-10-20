@@ -12,8 +12,9 @@ const _amapPrivacyPolicyVersion = 1;
 
 class AmapPrivacyGate extends ConsumerStatefulWidget {
   final Widget Function(BuildContext context, bool useAmap) builder;
+  final bool inlinePrompt;
 
-  const AmapPrivacyGate({super.key, required this.builder});
+  const AmapPrivacyGate({super.key, required this.builder, this.inlinePrompt = false});
 
   @override
   ConsumerState<AmapPrivacyGate> createState() => _AmapPrivacyGateState();
@@ -54,6 +55,22 @@ class _AmapPrivacyGateState extends ConsumerState<AmapPrivacyGate> {
           return widget.builder(context, false);
         }
 
+        if (widget.inlinePrompt) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              widget.builder(context, false),
+              const ModalBarrier(dismissible: false, color: Colors.black54),
+              Center(
+                child: SafeArea(
+                  minimum: const EdgeInsets.all(24),
+                  child: _AmapPrivacyDialog(onSelected: _saveConsent),
+                ),
+              ),
+            ],
+          );
+        }
+
         if (!_requestingConsent) {
           _requestingConsent = true;
           WidgetsBinding.instance.addPostFrameCallback((_) => _requestConsent());
@@ -65,6 +82,10 @@ class _AmapPrivacyGateState extends ConsumerState<AmapPrivacyGate> {
 
   Future<void> _requestConsent() async {
     final accepted = await _AmapConsentCoordinator.request(context);
+    await _saveConsent(accepted);
+  }
+
+  Future<void> _saveConsent(bool accepted) async {
     if (!mounted) {
       return;
     }
@@ -85,26 +106,35 @@ class _AmapConsentCoordinator {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Text('map_amap_privacy_title'.t(context: context)),
-        content: Text('map_amap_privacy_content'.t(context: context)),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                launchUrl(Uri.parse('https://lbs.amap.com/pages/privacy/'), mode: LaunchMode.externalApplication),
-            child: Text('map_amap_privacy_policy'.t(context: context)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('map_amap_privacy_use_fallback'.t(context: context)),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('map_amap_privacy_agree'.t(context: context)),
-          ),
-        ],
-      ),
+      builder: (context) => _AmapPrivacyDialog(onSelected: (accepted) => Navigator.of(context).pop(accepted)),
     );
     return result ?? false;
   }
+}
+
+class _AmapPrivacyDialog extends StatelessWidget {
+  final ValueChanged<bool> onSelected;
+
+  const _AmapPrivacyDialog({required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('map_amap_privacy_title'.t(context: context)),
+    content: Text('map_amap_privacy_content'.t(context: context)),
+    actions: [
+      TextButton(
+        onPressed: () =>
+            launchUrl(Uri.parse('https://lbs.amap.com/pages/privacy/'), mode: LaunchMode.externalApplication),
+        child: Text('map_amap_privacy_policy'.t(context: context)),
+      ),
+      TextButton(
+        onPressed: () => onSelected(false),
+        child: Text('map_amap_privacy_use_fallback'.t(context: context)),
+      ),
+      FilledButton(
+        onPressed: () => onSelected(true),
+        child: Text('map_amap_privacy_agree'.t(context: context)),
+      ),
+    ],
+  );
 }

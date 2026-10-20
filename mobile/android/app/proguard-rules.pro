@@ -45,3 +45,12 @@
 -keep class okio.** { *; }
 -keep class com.example.ok_http.** { *; }
 ##---------------End: proguard configuration for ok_http JNI ----------
+
+##---------------Begin: AMap SDK JNI/reflection ------------------------
+# AMap native libraries resolve these classes and methods by name. R8
+# obfuscation/removal causes a release-only SIGABRT in Runtime.nativeLoad.
+-keep class com.amap.api.** { *; }
+-keep class com.autonavi.** { *; }
+-dontwarn com.amap.ams.gnss.GnssSoftLocator
+-dontwarn net.jafama.FastMath
+##-----------------End: AMap SDK JNI/reflection -------------------------
