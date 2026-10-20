@@ -18,8 +18,42 @@ def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
   localPropertiesFile.withInputStream { localProperties.load(it) }
 }
-def amapDebugKey = localProperties.getProperty('AMAP_ANDROID_DEBUG_KEY', '')
-def amapReleaseKey = localProperties.getProperty('AMAP_ANDROID_RELEASE_KEY', '')
+// 高德 Key 只从统一凭据源读取；不回退到 local.properties 的旧副本。
+// 独立检出时可用 IMMICH_CREDENTIALS_FILE 指定同结构文件。
+def credentialsOverride = System.getenv('IMMICH_CREDENTIALS_FILE')
+def workspaceCredentialsFile = credentialsOverride ? file(credentialsOverride) :
+    file('../../../../../user_info.properties')
+def mapCredentials = [:]
+def credentialNames = [] as Set
+if (credentialsOverride && !workspaceCredentialsFile.isFile()) {
+  throw new GradleException('IMMICH_CREDENTIALS_FILE 指向的统一凭据文件不存在')
+}
+if (workspaceCredentialsFile.exists()) {
+  workspaceCredentialsFile.readLines('UTF-8').eachWithIndex { rawLine, index ->
+    def line = index == 0 ? rawLine.replaceFirst('^\uFEFF', '') : rawLine
+    if (line.trim() && !line.trim().startsWith('#') && !line.trim().startsWith('!')) {
+      def separator = line.indexOf('=')
+      if (separator < 1) {
+        throw new GradleException("统一凭据文件第 ${index + 1} 行不是有效的 key=value")
+      }
+      def name = line.substring(0, separator).trim()
+      if (!(name ==~ /[A-Za-z_][A-Za-z0-9_.-]*/) || credentialNames.contains(name)) {
+        throw new GradleException("统一凭据文件第 ${index + 1} 行存在无效或重复字段")
+      }
+      credentialNames.add(name)
+      if (name in ['AMAP_ANDROID_DEBUG_KEY', 'AMAP_ANDROID_RELEASE_KEY']) {
+        mapCredentials[name] = line.substring(separator + 1)
+      }
+    }
+  }
+  ['AMAP_ANDROID_DEBUG_KEY', 'AMAP_ANDROID_RELEASE_KEY'].each { name ->
+    if (!mapCredentials[name]?.trim()) {
+      throw new GradleException("统一凭据文件缺少非空字段：${name}")
+    }
+  }
+}
+def amapDebugKey = mapCredentials['AMAP_ANDROID_DEBUG_KEY'] ?: ''
+def amapReleaseKey = mapCredentials['AMAP_ANDROID_RELEASE_KEY'] ?: ''
 def configuredKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: localProperties.getProperty('ANDROID_KEYSTORE_PATH')
 def defaultKeystoreFile = file('../key.jks')
 def workspaceKeystoreFile = file('../../../../../immich-release.jks')
