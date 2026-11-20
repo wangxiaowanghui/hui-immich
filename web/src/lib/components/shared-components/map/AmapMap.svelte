@@ -357,14 +357,14 @@
 
   {#if showSimpleControls}
     <div class="absolute top-3 left-3 z-10 flex flex-col gap-1">
-      <button class="amap-control" type="button" aria-label="Zoom in" onclick={() => map?.zoomIn()}
+      <button class="immich-amap-control" type="button" aria-label="Zoom in" onclick={() => map?.zoomIn()}
         ><Icon icon={mdiPlus} /></button
       >
-      <button class="amap-control" type="button" aria-label="Zoom out" onclick={() => map?.zoomOut()}
+      <button class="immich-amap-control" type="button" aria-label="Zoom out" onclick={() => map?.zoomOut()}
         ><Icon icon={mdiMinus} /></button
       >
       {#if !simplified}
-        <button class="amap-control" type="button" aria-label="Current location" onclick={zoomToBrowserLocation}
+        <button class="immich-amap-control" type="button" aria-label="Current location" onclick={zoomToBrowserLocation}
           ><Icon icon={mdiCrosshairsGps} /></button
         >
       {/if}
@@ -373,12 +373,12 @@
 
   <div class="absolute top-3 right-3 z-10 flex gap-1">
     {#if showSettings}
-      <button class="amap-control" type="button" aria-label={$t('map_settings')} onclick={handleSettingsClick}
+      <button class="immich-amap-control" type="button" aria-label={$t('map_settings')} onclick={handleSettingsClick}
         ><Icon icon={mdiCog} /></button
       >
     {/if}
     {#if onOpenInMapView && showSimpleControls}
-      <button class="amap-control" type="button" aria-label={$t('open_in_map_view')} onclick={() => onOpenInMapView?.()}
+      <button class="immich-amap-control" type="button" aria-label={$t('open_in_map_view')} onclick={() => onOpenInMapView?.()}
         ><Icon icon={mdiMap} /></button
       >
     {/if}
@@ -386,7 +386,7 @@
 </div>
 
 <style>
-  .amap-control {
+  .immich-amap-control {
     display: flex;
     width: 34px;
     height: 34px;

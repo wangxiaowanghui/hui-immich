@@ -1,3 +1,6 @@
+require_relative 'scripts/amap_credentials'
+AmapCredentials.generate(__dir__)
+
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.0'
 
@@ -30,6 +33,9 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
   use_modular_headers!
+
+  pod 'AMap3DMap-NO-IDFA', '11.2.100'
+  pod 'AMapFoundation-NO-IDFA', '1.9.1'
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   
@@ -121,6 +127,4 @@ post_install do |installer|
     end
     # End of the permission_handler configuration
   end
-  system("defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES")
-  system("defaults write com.apple.dt.Xcode IDESkipMacroFingerprintValidation -bool YES")
 end

@@ -1,4 +1,7 @@
 PODS:
+  - AMap3DMap-NO-IDFA (11.2.100):
+    - AMapFoundation-NO-IDFA (>= 1.9.0)
+  - AMapFoundation-NO-IDFA (1.9.1)
   - bonsoir_darwin (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -24,6 +27,8 @@ PODS:
   - share_handler_ios_models (0.0.9)
 
 DEPENDENCIES:
+  - AMap3DMap-NO-IDFA (= 11.2.100)
+  - AMapFoundation-NO-IDFA (= 1.9.1)
   - bonsoir_darwin (from `.symlinks/plugins/bonsoir_darwin/darwin`)
   - cupertino_http (from `.symlinks/plugins/cupertino_http/darwin`)
   - Flutter (from `Flutter`)
@@ -33,6 +38,11 @@ DEPENDENCIES:
   - native_video_player (from `.symlinks/plugins/native_video_player/ios`)
   - share_handler_ios (from `.symlinks/plugins/share_handler_ios/ios`)
   - share_handler_ios_models (from `.symlinks/plugins/share_handler_ios/ios/Models`)
+
+SPEC REPOS:
+  trunk:
+    - AMap3DMap-NO-IDFA
+    - AMapFoundation-NO-IDFA
 
 EXTERNAL SOURCES:
   bonsoir_darwin:
@@ -55,6 +65,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/share_handler_ios/ios/Models"
 
 SPEC CHECKSUMS:
+  AMap3DMap-NO-IDFA: 439e67a50a683ea71b72a949882dcdf55f1cf2cd
+  AMapFoundation-NO-IDFA: b59e0f5bd904e747b34171f1f690e22e0003acaa
   bonsoir_darwin: 29c7ccf356646118844721f36e1de4b61f6cbd0e
   cupertino_http: 94ac07f5ff090b8effa6c5e2c47871d48ab7c86c
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
@@ -65,6 +77,6 @@ SPEC CHECKSUMS:
   share_handler_ios: e2244e990f826b2c8eaa291ac3831569438ba0fb
   share_handler_ios_models: fc638c9b4330dc7f082586c92aee9dfa0b87b871
 
-PODFILE CHECKSUM: 3c43a700a4bffb4120bf696cad263aefd4bb3c8c
+PODFILE CHECKSUM: 2d7db4c50e5c76b3344a5cd33a8fb7b30d9798f7
 
 COCOAPODS: 1.16.2

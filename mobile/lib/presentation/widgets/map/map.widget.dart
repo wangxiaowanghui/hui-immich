@@ -247,13 +247,21 @@ class _DriftMapState extends ConsumerState<DriftMap> {
     });
     return Stack(
       children: [
-        _Map(
-          initialLocation: widget.initialLocation,
-          onMapCreated: onMapCreated,
-          onMapLibreReady: onMapLibreReady,
-          onAmapCreated: onAmapCreated,
-          onAmapReady: onAmapReady,
-          onAmapCameraIdle: onAmapCameraIdle,
+        ValueListenableBuilder<double>(
+          valueListenable: bottomSheetOffset,
+          child: _Map(
+            initialLocation: widget.initialLocation,
+            onMapCreated: onMapCreated,
+            onMapLibreReady: onMapLibreReady,
+            onAmapCreated: onAmapCreated,
+            onAmapReady: onAmapReady,
+            onAmapCameraIdle: onAmapCameraIdle,
+          ),
+          builder: (context, offset, child) => Positioned.fill(
+            // iOS 地图的 Logo 和比例尺不能被照片面板遮挡；保留原 Android 布局。
+            bottom: Platform.isIOS ? context.height * offset : 0,
+            child: child!,
+          ),
         ),
         _DynamicBottomSheet(
             bottomSheetOffset: bottomSheetOffset, sheetKey: _bottomSheetKey),
@@ -295,6 +303,7 @@ class _Map extends StatelessWidget {
               initialLocation == null ? 3.0 : MapUtils.mapZoomToAssetLevel;
           if (useAmap) {
             return AmapMap(
+              onMapError: () => AmapPrivacyGate.useFallback(context),
               initialCenter: center,
               zoom: zoom,
               autoFitMarkers: initialLocation == null,

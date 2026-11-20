@@ -20,6 +20,7 @@ import native_video_player
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    AmapMapPlugin.register(with: engineBridge.pluginRegistry.registrar(forPlugin: "AmapMapPlugin")!)
     let messenger = engineBridge.applicationRegistrar.messenger()
     AppDelegate.registerPlugins(with: engineBridge.pluginRegistry, messenger: messenger)
   }

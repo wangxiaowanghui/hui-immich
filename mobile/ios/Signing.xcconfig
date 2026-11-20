@@ -25,5 +25,15 @@ IMMICH_BUNDLE_ID_DEV = app.futo.immich
 // Build scheme suffixes (`.debug`/`.profile`) will be appended
 IMMICH_GROUP_ID = group.app.immich.share
 
+// 默认保持完整权限；本机 Debug/Profile 可分别显式覆盖，Release 不受影响。
+IMMICH_DEBUG_ENTITLEMENTS = Runner/Runner.entitlements
+IMMICH_PROFILE_ENTITLEMENTS = Runner/RunnerProfile.entitlements
+
+// 后缀可在本机覆盖为空，让地图 Key 对应唯一主应用 ID。
+IMMICH_DEBUG_SUFFIX = .debug
+IMMICH_PROFILE_SUFFIX = .profile
+
+#include? ".generated/AMap.xcconfig"
+
 // Optional per-developer configuration override
 #include? "Signing.local.xcconfig"

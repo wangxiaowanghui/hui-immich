@@ -82,6 +82,7 @@ class MapLocationPickerPage extends HookConsumerWidget {
                 final zoom = (initialLatLng.latitude == 0 && initialLatLng.longitude == 0) ? 1.0 : 12.0;
                 if (useAmap) {
                   return AmapMap(
+                    onMapError: () => AmapPrivacyGate.useFallback(mapContext),
                     initialCenter: initialLatLng,
                     zoom: zoom,
                     darkMode: Theme.of(mapContext).brightness == Brightness.dark,

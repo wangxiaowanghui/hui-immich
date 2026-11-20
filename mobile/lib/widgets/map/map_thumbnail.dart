@@ -89,6 +89,7 @@ class MapThumbnail extends HookConsumerWidget {
                 builder: (mapContext, useAmap) {
                   if (useAmap) {
                     return AmapMap(
+                      onMapError: () => AmapPrivacyGate.useFallback(mapContext),
                       initialCenter: centre,
                       zoom: zoom,
                       interactive: false,

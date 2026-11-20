@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -16,40 +16,58 @@ class AmapPrivacyGate extends ConsumerStatefulWidget {
 
   const AmapPrivacyGate({super.key, required this.builder, this.inlinePrompt = false});
 
+  static void useFallback(BuildContext context) {
+    final state = context.findAncestorStateOfType<_AmapPrivacyGateState>();
+    state?._useFallback();
+  }
+
   @override
   ConsumerState<AmapPrivacyGate> createState() => _AmapPrivacyGateState();
 }
 
 class _AmapPrivacyGateState extends ConsumerState<AmapPrivacyGate> {
-  static Future<bool>? _isConfigured;
+  Future<bool>? _isConfigured;
+  bool _failed = false;
+  bool get _supported => defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS;
   bool _requestingConsent = false;
+
+  void _useFallback() {
+    if (mounted && !_failed) {
+      setState(() => _failed = true);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    if (Platform.isAndroid) {
-      _isConfigured ??= const MethodChannel(
-        'immich/amap_config',
-      ).invokeMethod<bool>('isConfigured').then((value) => value ?? false, onError: (_) => false);
+    if (_supported) {
+      _isConfigured ??= const MethodChannel('immich/amap_config')
+          .invokeMethod<bool>('isConfigured')
+          .timeout(const Duration(seconds: 5))
+          .then((value) => value ?? false, onError: (_) => false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isAndroid) {
+    if (!_supported || _failed) {
       return widget.builder(context, false);
     }
 
     return FutureBuilder<bool>(
       future: _isConfigured,
       builder: (context, configured) {
+        // 配置判定前不创建备用原生地图，避免它迟到的创建回调覆盖高德控制器。
+        if (configured.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator.adaptive());
+        }
         if (configured.data != true) {
           return widget.builder(context, false);
         }
 
         final consentVersion = ref.watch(appConfigProvider.select((config) => config.map.amapPrivacyConsentVersion));
         if (consentVersion == _amapPrivacyPolicyVersion) {
-          return widget.builder(context, true);
+          return Builder(builder: (mapContext) => widget.builder(mapContext, true));
         }
         if (consentVersion == -_amapPrivacyPolicyVersion) {
           return widget.builder(context, false);
